@@ -10,7 +10,7 @@ import math
 import argparse
 
 # import import_ipynb
-from ugan_i_ganOrig import *
+from ugan_i_ganOrig import Combination, Discriminator, TemporalDecay, UGAN
 from sklearn import metrics
 
 SEQ_LEN = 36
