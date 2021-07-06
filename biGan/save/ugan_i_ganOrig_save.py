@@ -30,10 +30,10 @@ class Combination(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
-        stdv1 = 1.0 / math.sqrt(self.W1.size(0))
+        stdv1 = 1. / math.sqrt(self.W1.size(0))
         self.W1.data.uniform_(-stdv1, stdv1)
 
-        stdv2 = 1.0 / math.sqrt(self.W2.size(0))
+        stdv2 = 1. / math.sqrt(self.W2.size(0))
         self.W2.data.uniform_(-stdv2, stdv2)
 
         if self.b1 is not None:
@@ -63,7 +63,7 @@ class TemporalDecay(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
-        stdv = 1.0 / math.sqrt(self.W.size(0))
+        stdv = 1. / math.sqrt(self.W.size(0))
         self.W.data.uniform_(-stdv, stdv)
         if self.b is not None:
             self.b.data.uniform_(-stdv, stdv)
@@ -96,14 +96,13 @@ class Discriminator(nn.Module):
             values, masks = values.cuda(), masks.cuda()
 
         scoresSig = []
-        scoresReg = []
         missing = []
-        if direct == "forward":
+        if(direct == "forward"):
 
             for t in range(SEQ_LEN):
                 # print("===============",t,"======================")
                 x = values[:, t]
-                x = x.unsqueeze(dim=1)
+                x=x.unsqueeze(dim=1)
                 m = masks[:, t]
                 # print("Input",x.size())
                 # print("Input",x[0])
@@ -111,13 +110,13 @@ class Discriminator(nn.Module):
                 x_h = self.regression1(h)
                 x_h = self.leaky(x_h)
                 x_h = self.regression2(x_h)
-                x_h2 = self.sig(x_h)
+                x_h = self.sig(x_h)
                 # print("Discriminator output",x_h.shape)
 
                 # print("Output regression",x_h.size())
                 # print("Mask",m.size())
 
-                m = m.unsqueeze(dim=1)
+                m=m.unsqueeze(dim=1)
 
                 # print("i am here")
 
@@ -125,8 +124,7 @@ class Discriminator(nn.Module):
                 # print("i am here")
 
                 # imputations.append(x_c[:,316].unsqueeze(dim = 1))
-                scoresSig.append(x_h2[:, 0].unsqueeze(dim=1))
-                scoresReg.append(x_h[:, 0].unsqueeze(dim=1))
+                scoresSig.append(x_h[:,0].unsqueeze(dim = 1))
                 # print("i am here")
                 missing.append(m)
                 # print("i am here")
@@ -134,12 +132,12 @@ class Discriminator(nn.Module):
                 # print("Imputations",len(imputations))
                 # print("Scores",scores[0].size())
 
-        elif direct == "backward":
+        elif(direct=="backward"):
 
-            for t in range(SEQ_LEN - 1, -1, -1):
+            for t in range(SEQ_LEN-1,-1,-1):
                 # print("===============",t,"======================")
                 x = values[:, t]
-                x = x.unsqueeze(dim=1)
+                x=x.unsqueeze(dim=1)
                 m = masks[:, t]
                 # print("Input",x.size())
                 # print("Input",x[0])
@@ -147,48 +145,45 @@ class Discriminator(nn.Module):
                 x_h = self.regression1(h)
                 x_h = self.leaky(x_h)
                 x_h = self.regression2(x_h)
-                x_h2 = self.sig(x_h)
+                x_h = self.sig(x_h)
                 # print("Discriminator output",x_h.shape)
 
                 # print("Output regression",x_h.size())
                 # print("Mask",m.size())
 
-                m = m.unsqueeze(dim=1)
+                m=m.unsqueeze(dim=1)
 
                 # print("d",d[:,0].unsqueeze(dim=1).size())
 
                 h, c = self.rnn_cell(x, (h, c))
 
                 # imputations.append(x_c[:,316].unsqueeze(dim = 1))
-                scoresSig.append(x_h2[:, 0].unsqueeze(dim=1))
-                scoresReg.append(x_h[:, 0].unsqueeze(dim=1))
+                scoresSig.append(x_h[:,0].unsqueeze(dim = 1))
                 missing.append(m)
                 # print("to be appended",m.size())
                 # print("Imputations",len(imputations))
                 # print("Scores",scores[0].size())
 
-        scoresSig = torch.cat(scoresSig, dim=1)
-        scoresReg = torch.cat(scoresReg, dim=1)
-        missing = torch.cat(missing, dim=1)
+        scoresSig = torch.cat(scoresSig, dim = 1)
+        missing = torch.cat(missing, dim = 1)
         # print("Scores",len(scores),scores[0].size())
-        return {"scoresSig": scoresSig, "scoresReg": scoresReg, "missing": missing}
-
+        return {'scoresSig': scoresSig, 'missing':missing}
 
 class UGAN(nn.Module):
-    def __init__(self, args):
+    def __init__(self,args):
         super(UGAN, self).__init__()
         if args.air:
             self.RNN_HID_SIZE = 10
             self.NFEATURES = 14
-            self.var = 2
+            self.var=2
         if args.mimic:
             self.RNN_HID_SIZE = 10
             self.NFEATURES = 20
-            self.var = 2
+            self.var=2
         if args.ehr:
             self.RNN_HID_SIZE = 400
             self.NFEATURES = 812
-            self.var = 811
+            self.var=811
         self.build()
 
     def build(self):
@@ -196,17 +191,19 @@ class UGAN(nn.Module):
 
         # self.regression = nn.Linear(RNN_HID_SIZE, 35)
         self.regression = nn.Linear(self.RNN_HID_SIZE, 1)
-        self.temp_decay = TemporalDecay(
-            input_size=self.NFEATURES, RNN_HID_SIZE=self.RNN_HID_SIZE
-        )
-        # self.comb_factor = Combination(input_size = 1)
+        self.temp_decay = TemporalDecay(input_size = self.NFEATURES,RNN_HID_SIZE = self.RNN_HID_SIZE)
+        self.comb_factor = Combination(input_size = 1)
+
 
         # self.out = nn.Linear(RNN_HID_SIZE, 1)
 
     def forward(self, values, masks, deltas, args, direct):
-        # Original sequence with 24 time steps
-        deltas = deltas.unsqueeze(dim=2).repeat(1, 1, self.NFEATURES)
-        # print("deltas",deltas[0])
+
+        deltas=deltas.unsqueeze(dim=2).repeat(1,1,self.NFEATURES)
+        # print("deltas",deltas.shape)
+        # print("deltas",deltas[0,0])
+
+        # print("mask",masks.shape)
 
         # evals = data[direct]['evals']
         # eval_masks = data[direct]['eval_masks']
@@ -225,10 +222,10 @@ class UGAN(nn.Module):
         # y_loss = 0.0
 
         imputations = []
-        combFactor = []
-        missing = []
-        originals = []
-        if direct == "forward":
+        combFactor=[]
+        missing=[]
+        originals=[]
+        if(direct=="forward"):
 
             for t in range(SEQ_LEN):
                 # print("===============",t,"======================")
@@ -250,39 +247,40 @@ class UGAN(nn.Module):
                 # print("Mask",m.size())
 
                 # x_c =  m * x +  (1 - m) * x_h
-                x[:, self.var] = x[:, self.var] * m + (1 - m) * x_h[:, 0]
-                x_c = x
+                x[:,self.var] =  x[:,self.var]*m + (1-m)*x_h[:,0]
+                # x[:,2] =  x[:,2]*m + (1-m)*x_h[:,0]
+                x_c=x
                 # print("Complement Vector",x_c.size())
                 # print("Complement Vector",x_c[0,316])
 
-                # comb=self.comb_factor(d[:,0].unsqueeze(dim=1))
+                comb=self.comb_factor(d[:,0].unsqueeze(dim=1))
                 # print("Comb Output",comb.size())
 
-                x_loss += torch.sum(torch.abs(x[:, self.var] - x_h[:, 0]) * m) / (
-                    torch.sum(m) + 1e-5
-                )
+                x_loss += torch.sum(torch.abs(x[:,self.var] - x_h[:,0]) * m) / (torch.sum(m) + 1e-5)
+                # x_loss += torch.sum(torch.abs(x[:,2] - x_h[:,0]) * m) / (torch.sum(m) + 1e-5)
 
                 # print("X_loss",x_loss)
-                m = m.unsqueeze(dim=1)
+                m=m.unsqueeze(dim=1)
 
-                inputs = torch.cat([x_c, m], dim=1)
+                inputs = torch.cat([x_c, m], dim = 1)
 
                 # print("Next input",inputs.size())
 
                 h, c = self.rnn_cell(inputs, (h, c))
 
                 # imputations.append(x_c[:,316].unsqueeze(dim = 1))
-                imputations.append(x_h[:, 0].unsqueeze(dim=1))
-                originals.append(x_c[:, self.var].unsqueeze(dim=1))
-                # combFactor.append(comb)
+                imputations.append(x_h[:,0].unsqueeze(dim = 1))
+                originals.append(x_c[:,self.var].unsqueeze(dim = 1))
+                # originals.append(x_c[:,2].unsqueeze(dim = 1))
+                combFactor.append(comb)
                 missing.append(m)
                 # print("to be appended",m.size())
                 # print("Imputations",len(imputations))
                 # print("Imputations",combFactor[0].size())
 
-        elif direct == "backward":
+        elif(direct=="backward"):
             # print("BACKWARD")
-            for t in range(SEQ_LEN - 1, -1, -1):
+            for t in range(SEQ_LEN-1,-1,-1):
                 # print("===============",t,"======================")
                 x = values[:, t, :]
                 m = masks[:, t]
@@ -301,44 +299,40 @@ class UGAN(nn.Module):
                 # print("Regression output",x_h[0,:])
 
                 # x_c =  m * x +  (1 - m) * x_h
-                x[:, self.var] = x[:, self.var] * m + (1 - m) * x_h[:, 0]
-                x_c = x
+                x[:,self.var] =  x[:,self.var]*m + (1-m)*x_h[:,0]
+                # x[:,2] =  x[:,2]*m + (1-m)*x_h[:,0]
+                x_c=x
                 # print("Complement Vector",x_c.size())
                 # print("Complement Vector",x_c[0,316])
 
-                # comb=self.comb_factor(d[:,0].unsqueeze(dim=1))
+                comb=self.comb_factor(d[:,0].unsqueeze(dim=1))
 
-                x_loss += torch.sum(torch.abs(x[:, self.var] - x_h[:, 0]) * m) / (
-                    torch.sum(m) + 1e-5
-                )
+                x_loss += torch.sum(torch.abs(x[:,self.var] - x_h[:,0]) * m) / (torch.sum(m) + 1e-5)
+                #x_loss += torch.sum(torch.abs(x[:,2] - x_h[:,0]) * m) / (torch.sum(m) + 1e-5)
 
-                # print("X_loss",x_loss)
-                m = m.unsqueeze(dim=1)
+                #print("X_loss",x_loss)
+                m=m.unsqueeze(dim=1)
 
-                inputs = torch.cat([x_c, m], dim=1)
+                inputs = torch.cat([x_c, m], dim = 1)
 
-                # print("Next input",inputs.size())
+                #print("Next input",inputs.size())
 
                 h, c = self.rnn_cell(inputs, (h, c))
 
-                # imputations.append(x_c[:,316].unsqueeze(dim = 1))
-                imputations.append(x_h[:, 0].unsqueeze(dim=1))
-                originals.append(x_c[:, self.var].unsqueeze(dim=1))
-                # combFactor.append(comb)
+                #imputations.append(x_c[:,316].unsqueeze(dim = 1))
+                imputations.append(x_h[:,0].unsqueeze(dim = 1))
+                originals.append(x_c[:,self.var].unsqueeze(dim = 1))
+                #originals.append(x_c[:,2].unsqueeze(dim = 1))
+                combFactor.append(comb)
                 missing.append(m)
-                # print("Imputations",imputations[0].size())
+                #print("Imputations",imputations[0].size())
 
-        imputations = torch.cat(imputations, dim=1)
-        originals = torch.cat(originals, dim=1)
-        # combFactor = torch.cat(combFactor, dim = 1)
-        missing = torch.cat(missing, dim=1)
-        # print("Final Imputations",imputations.size())
-        # print("Final Combs",combFactor.size())
-        # print("Final Missing",missing.size())
+        imputations = torch.cat(imputations, dim = 1)
+        originals = torch.cat(originals, dim = 1)
+        combFactor = torch.cat(combFactor, dim = 1)
+        missing = torch.cat(missing, dim = 1)
+        #print("Final Imputations",imputations.size())
+        #print("Final Combs",combFactor.size())
+        #print("Final Missing",missing.size())
 
-        return {
-            "loss": x_loss / SEQ_LEN,
-            "originals": originals,
-            "imputations": imputations,
-            "missing": missing,
-        }
+        return {'loss': x_loss / SEQ_LEN , 'originals':originals, 'imputations': imputations, 'combinations':combFactor, 'missing':missing}
