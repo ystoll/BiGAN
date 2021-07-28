@@ -11,7 +11,7 @@ import argparse
 
 from sklearn import metrics
 
-SEQ_LEN = 40
+SEQ_LEN = 20
 
 
 class TemporalDecay(nn.Module):
@@ -91,6 +91,10 @@ class RITS2(nn.Module):
             for t in range(SEQ_LEN):
                 # print("===============",t,"======================")
                 x = values[:, t, :]
+                # print("SEQ_LEN: ", SEQ_LEN)
+                # print("masks.shape: ", masks.shape)
+                # input("waiting")
+
                 m = masks[:, t]
                 d = deltas[:, t]
                 # print("d",d[:,0].unsqueeze(dim=1).size())

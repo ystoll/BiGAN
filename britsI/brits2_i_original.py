@@ -10,7 +10,7 @@ import math
 import argparse
 
 # import import_ipynb
-from rits2_i_original import *
+from rits2_i_original import TemporalDecay, RITS2
 from sklearn import metrics
 
 SEQ_LEN = 36

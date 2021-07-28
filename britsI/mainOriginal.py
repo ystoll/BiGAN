@@ -15,18 +15,21 @@ import pandas as pd
 
 import math
 import argparse
-# import import_ipynb
-from mrnn import TemporalDecay, MRNN, run_on_batch
+from brits2_i_original import BRITS2, run_on_batch
 from sklearn import metrics
 from sklearn.preprocessing import StandardScaler, OneHotEncoder, MinMaxScaler
 
 from argparse import ArgumentParser
 
-save_path = "data/aaai/mrnn.tar"  # vaegan_model - Copy.tar"
+save_path = "data/saved_models/activityReverse.tar"  # vaegan_model - Copy.tar"
 import warnings
 
 warnings.filterwarnings("ignore")
 warnings.simplefilter("ignore")
+
+if not os.path.exists("data/saved_models"):
+    os.makedirs("data/saved_models")
+
 
 ARG_PARSER = ArgumentParser()
 
@@ -35,16 +38,16 @@ ARG_PARSER.add_argument("--dfeatures", default=43, type=int)
 ARG_PARSER.add_argument("--ehidden", default=300, type=int)
 ARG_PARSER.add_argument("--model", type=str)
 
-ARG_PARSER.add_argument("--ehr", default=False)
+ARG_PARSER.add_argument("--ehr", default=True)
 ARG_PARSER.add_argument("--air", default=False)
-ARG_PARSER.add_argument("--mimic", default=True)
+ARG_PARSER.add_argument("--mimic", default=False)
 
-ARG_PARSER.add_argument("--num_epochs", default=5, type=int)
+ARG_PARSER.add_argument("--num_epochs", default=100, type=int)
 ARG_PARSER.add_argument("--seq_len", default=40, type=int)
-ARG_PARSER.add_argument("--pred_len", default=5, type=int)
+ARG_PARSER.add_argument("--pred_len", default=8, type=int)
 ARG_PARSER.add_argument("--batch_size", default=200, type=int)
 ARG_PARSER.add_argument("--missingRate", default=10, type=int)
-ARG_PARSER.add_argument("--patience", default=40, type=int)
+ARG_PARSER.add_argument("--patience", default=30, type=int)
 ARG_PARSER.add_argument("--e_lrn_rate", default=0.1, type=float)
 ARG_PARSER.add_argument("--g_lrn_rate", default=0.1, type=float)
 ARG_PARSER.add_argument("--d_lrn_rate", default=0.001, type=float)
@@ -74,47 +77,17 @@ class CSVDataset(Dataset):
 
     def __getitem__(self, index):
         data = self.reader.get_chunk(self.chunksize)
-        # sex=pd.read_csv('C:\\Users/mehak/Desktop/demo.csv',header=0)
-        # sex=sex[['person_id','Sex']]
-        # data = pd.merge(data, sex, how='left', on=['person_id'])
-        # print(data.shape)
-        # data=data.sort_values(by=['RANDOM_PATIENT_ID','VISIT_YEAR','VISIT_MONTH'])
-        # print(data['RANDOM_PATIENT_ID'].unique())
-        #         del data['person_id']
-        #         print(data.columns.get_loc('BMI'))
-        # print(data.columns)
-
         data = data.replace(np.inf, 0)
         data = data.replace(np.nan, 0)
         data = data.fillna(0)
-        # print(data.shape)
         if self.flag == 0:
-            #             data['Age']=data['Age'].apply(lambda x: ((x*12)/3)-81)
-            # Yannick
-            pids = data["subject_id"]
-            #             age=data['age']
-            #             del data['age']
+            pids = data["person_id"]
             pids = T.as_tensor(pids.values.astype(float), dtype=T.long)
-            #             age = T.as_tensor(age.values.astype(float), dtype=T.long)
-            #             print("age",data['Age'])
-            #             print("pids",list(pids))
-            #             print("========================================================")
-
-
 
             data = T.as_tensor(data.values.astype(float), dtype=T.float32)
-            #         print(list(data[:,0]))
-            #         print("========================================================")
-            # data=T.from_numpy(data)
-            # data=data.double()
             data = data.view(
                 int(data.shape[0] / self.seq_len), self.seq_len, data.shape[1]
             )
-            # print(data.shape)
-            # print("age",data[0,:,203])
-            # mask=pd.DataFrame()
-            # mask = data.loc[data['LABS_LDL_MEAN']>0,'LABS_LDL_MEAN']=1
-            # df[df['LABS_LDL_MEAN']<0].count()
             return data, pids
         else:
             data = T.as_tensor(data.values.astype(float), dtype=T.float32)
@@ -122,7 +95,7 @@ class CSVDataset(Dataset):
                 int(data.shape[0] / self.seq_len), self.seq_len, data.shape[1]
             )
 
-            return data
+        return data
 
     def __len__(self):
         return self.len
@@ -131,7 +104,7 @@ class CSVDataset(Dataset):
 class EarlyStopping:
     """Early stops the training if validation loss doesn't improve after a given patience."""
 
-    def __init__(self, patience=7, verbose=True, delta=0):
+    def __init__(self, patience=7, verbose=False, delta=0):
         """
         Args:
             patience (int): How long to wait after last time validation loss improved.
@@ -195,16 +168,11 @@ def pred_test(args, model, predWin):
     with T.autograd.no_grad():
         for i in ["M", "F"]:
             files = "cond" + i + "test.csv"
-
-            #         drugFiles = 'drug'+G+'val.csv'
-
             maskFiles = "mask" + i + "test.csv"
-            # print(files)
 
             dataset = CSVDataset(
                 files, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=0
             )
-            # orig = CSVDataset('C:\\Users/mehak/Desktop/testganAggOrig.csv', int(args.seq_len*500),1356100,args.seq_len)
             maskDataset = CSVDataset(
                 maskFiles, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=1
             )
@@ -212,7 +180,6 @@ def pred_test(args, model, predWin):
             loader = DataLoader(
                 dataset, batch_size=1, num_workers=0, shuffle=False
             )  # number of times getitem is called in one iteration
-            # origLoader = DataLoader(orig,batch_size=1,num_workers=0, shuffle=False)
             maskLoader = DataLoader(
                 maskDataset, batch_size=1, num_workers=0, shuffle=False
             )
@@ -221,8 +188,6 @@ def pred_test(args, model, predWin):
 
             # for every batch
             for batch_idx, allData in enumerate(zip(loader, maskLoader)):
-                # bmi_norm=dataset.bmi_norm
-                # print('batch: {}'.format(batch_idx))
                 data, mask = allData
                 data = data[0]
                 data = data[:, :, :, 1:]
@@ -232,14 +197,9 @@ def pred_test(args, model, predWin):
                 bmi = mask[:, :, :, 5]
                 mask = mask[:, :, :, 4]
 
-                #             print(data.shape)
                 bmi = bmi.unsqueeze(3)
-                #             print(bmi.shape)
-                #             print(bmi[0,0,:,0])
 
                 data = torch.cat((data, bmi), dim=3)
-                #             print(data.shape)
-                #             print(data[0,0,:,228])
 
                 data = data.squeeze()
                 mask = mask.squeeze()
@@ -247,20 +207,11 @@ def pred_test(args, model, predWin):
                 rdecay = rdecay.squeeze()
                 bmi = bmi.squeeze()
 
-                # values to be predicted
                 y = data.clone().detach()
-                #                 print(y.shape)
-                #                 print(data.shape)
                 testMask = mask.clone().detach()
-                #             sex=y[:,:,608]
-                #             age=y[:,:,607]
-                # print(sex.shape,age.shape)
                 y = y[:, :, 811]
 
-                # ------------remove last 5 timestamps------------------
-                # print(data[0:10,8:,653])
                 for i in range(data.shape[0]):
-                    # if(data[i,])
                     j = 40
                     if predWin == 8:
                         k = 32
@@ -274,47 +225,30 @@ def pred_test(args, model, predWin):
                     data[i, j - k : j, :] = 0
                     mask[i, j - k : j] = 0
                     y[i, 0 : j - k] = 0
-                    #                 age[i,0:j-k]=0
-                    #                 sex[i,0:j-k]=0
-                    # print(sex.shape,age.shape)
-                    # yOrig[i,0:j-k]=0
                     testMask[i, 0 : j - k] = 0
 
-                ret = run_on_batch(
-                    model, data, mask, decay, rdecay, args, optimizer=None
+                ret_f, ret = run_on_batch(
+                    model, data, mask, decay, rdecay, args, optimizer=None, epoch=None
                 )  # ,bmi_norm)
-                # print("Input",data.shape)
-                # print(data[0,:,316])
-                # print("Reverse",ret['imputations'][0,:])
-                # print("ForwardOnly",ret_f['imputations'][0,:])
-                # print("Original",y.shape)
-                # print(y[0,:])
-                # print("Mask",testMask.shape)
-                # print(testMask[0,:])
                 RLoss = RLoss + ret["loss"]
-                #                 testMask=testMask.cuda()
-                #                 y=y.cuda()
+                FLoss = FLoss + ret_f["loss"]
                 outputBMI = ret["imputations"] * testMask
+                outputBMIF = ret_f["imputations"] * testMask
                 mseLoss = mseLoss + (torch.sum(torch.abs(outputBMI - y))) / (
                     torch.sum(testMask) + 1e-5
                 )
-
-                # print("RMSELoss Revrese: ",mseLoss)
-                # print("RMSELoss Forward: ",mseLossF)
-                outBmi, inBmi = plotBmi(outputBMI, y, testMask)
+                mseLossF = mseLossF + (torch.sum(torch.abs(outputBMIF - y))) / (
+                    torch.sum(testMask) + 1e-5
+                )
+                outBmi, outBmiF, inBmi = plotBmi(outputBMI, outputBMIF, y, testMask)
                 oBmi.extend(outBmi)
-
+                oBmiF.extend(outBmiF)
                 iBmi.extend(inBmi)
 
-                # T.cuda.empty_cache()
-                # paramsE=list(model['e'].parameters())
-                # paramsG=list(model['g'].parameters())
-                # print("AFTER PARAM",paramsE[0][20],paramsG[8][0][0])
             TBatches = TBatches + batch_idx + 1
         RLoss = RLoss / TBatches
         mseLoss = mseLoss / TBatches
-
-    # print("===================================")
+        mseLossF = mseLossF / TBatches
     oBmi = np.asarray(oBmi)
     iBmi = np.asarray(iBmi)
     loss = oBmi - iBmi
@@ -323,10 +257,9 @@ def pred_test(args, model, predWin):
     res = variance ** 0.5
     ci = 1.96 * (res / (math.sqrt(len(loss))))
 
-    # print("Val R Loss:",RLoss)
     print("CI", ci)
     print("MAE Loss Reverse:", mseLoss)
-    # print(outputBMI)
+    print("MAE Loss Forward:", mseLossF)
     return oBmi, oBmiF, iBmi
 
 
@@ -349,16 +282,11 @@ def imputation_test(args, model, missingRate):
     with T.autograd.no_grad():
         for i in ["M", "F"]:
             files = "cond" + i + "test.csv"
-
-            #         drugFiles = 'drug'+G+'val.csv'
-
             maskFiles = "mask" + i + "test.csv"
-            # print(files)
 
             dataset = CSVDataset(
                 files, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=0
             )
-            # orig = CSVDataset('C:\\Users/mehak/Desktop/testganAggOrig.csv', int(args.seq_len*500),1356100,args.seq_len)
             maskDataset = CSVDataset(
                 maskFiles, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=1
             )
@@ -366,7 +294,6 @@ def imputation_test(args, model, missingRate):
             loader = DataLoader(
                 dataset, batch_size=1, num_workers=0, shuffle=False
             )  # number of times getitem is called in one iteration
-            # origLoader = DataLoader(orig,batch_size=1,num_workers=0, shuffle=False)
             maskLoader = DataLoader(
                 maskDataset, batch_size=1, num_workers=0, shuffle=False
             )
@@ -375,8 +302,6 @@ def imputation_test(args, model, missingRate):
 
             # for every batch
             for batch_idx, allData in enumerate(zip(loader, maskLoader)):
-                # bmi_norm=dataset.bmi_norm
-                # print('batch: {}'.format(batch_idx))
                 data, mask = allData
                 data = data[0]
                 data = data[:, :, :, 1:]
@@ -386,14 +311,9 @@ def imputation_test(args, model, missingRate):
                 bmi = mask[:, :, :, 5]
                 mask = mask[:, :, :, 4]
 
-                #             print(data.shape)
                 bmi = bmi.unsqueeze(3)
-                #             print(bmi.shape)
-                #             print(bmi[0,0,:,0])
 
                 data = torch.cat((data, bmi), dim=3)
-                #             print(data.shape)
-                #             print(data[0,0,:,228])
 
                 data = data.squeeze()
                 mask = mask.squeeze()
@@ -403,21 +323,13 @@ def imputation_test(args, model, missingRate):
 
                 # values to be predicted
                 y = data.clone().detach()
-                #                 print(y.shape)
-                #                 print(data.shape)
                 testMask = mask.clone().detach()
-                #             sex=y[:,:,608]
-                #             age=y[:,:,607]
-                # print(sex.shape,age.shape)
+
                 y = y[:, :, 811]
 
                 bmi = 811
 
-                # ------------remove last 5 timestamps------------------
-                # print(data[0:10,8:,653])
                 for i in range(data.shape[0]):
-                    # if(data[i,])
-                    # mask[i,:].loc[mask[i,:].query('value == 1').sample(frac=.1).index,'value'] = 0
                     idxs = torch.nonzero(mask[i, :] == 1)
                     samples = samples + list(idxs.size())[0]
                     if (missingRate == 50) & (list(idxs.size())[0] > 4):
@@ -427,7 +339,6 @@ def imputation_test(args, model, missingRate):
                         data[i, idxs[2], bmi] = 0
                         data[i, idxs[3], bmi] = 0
                         data[i, idxs[4], bmi] = 0
-                        # print(mask[i,:])
                         mask[i, idxs[0]] = 0
                         mask[i, idxs[1]] = 0
                         mask[i, idxs[2]] = 0
@@ -440,7 +351,6 @@ def imputation_test(args, model, missingRate):
                         data[i, idxs[1], bmi] = 0
                         data[i, idxs[2], bmi] = 0
                         data[i, idxs[3], bmi] = 0
-                        # print(mask[i,:])
                         mask[i, idxs[0]] = 0
                         mask[i, idxs[1]] = 0
                         mask[i, idxs[2]] = 0
@@ -451,7 +361,6 @@ def imputation_test(args, model, missingRate):
                         data[i, idxs[0], bmi] = 0
                         data[i, idxs[1], bmi] = 0
                         data[i, idxs[2], bmi] = 0
-                        # print(mask[i,:])
                         mask[i, idxs[0]] = 0
                         mask[i, idxs[1]] = 0
                         mask[i, idxs[2]] = 0
@@ -460,67 +369,41 @@ def imputation_test(args, model, missingRate):
                         idxs = random.sample(set(idxs), 2)
                         data[i, idxs[0], bmi] = 0
                         data[i, idxs[1], bmi] = 0
-                        # print(mask[i,:])
                         mask[i, idxs[0]] = 0
                         mask[i, idxs[1]] = 0
                         pids = pids + 2
                     elif (missingRate >= 10) & (list(idxs.size())[0] > 0):
-                        idxs = random.sample(set(idxs), 1)
-                        data[i, idxs, bmi] = 0
-                        mask[i, idxs] = 0
-                        pids = pids + 1
+                        if i % 2 == 0:
+                            idxs = random.sample(set(idxs), 1)
+                            data[i, idxs, bmi] = 0
+                            mask[i, idxs] = 0
+                            pids = pids + 1
 
-                    # data[i,idxs,316]=0
-                    # print(mask[i,:])
-                    # mask[i,idxs]=0
-                    # print(mask[i,:])
                     testMask[i, :] = testMask[i, :] - mask[i, :]
-                    # print(testMask[i,:])
-                    # print(y[i,:])
                     y[i, :] = y[i, :] * testMask[i, :]
 
-                # print("Input Data",data.shape)
-                # print("Input Mask",mask.shape)
-                ret = run_on_batch(
-                    model, data, mask, decay, rdecay, args, optimizer=None
+                ret_f, ret = run_on_batch(
+                    model, data, mask, decay, rdecay, args, optimizer=None, epoch=None
                 )  # ,bmi_norm)
-                # print("Input",data.shape)
-                # print(data[0,:,316])
-                # print("Reverse",ret['imputations'][0,:])
-                # print("ForwardOnly",ret_f['imputations'][0,:])
-                # print("Original",y.shape)
-                # print(y[0,:])
-                # print("Mask",testMask.shape)
-                # print(testMask[0,:])
                 RLoss = RLoss + ret["loss"]
-
-                #             testMask=testMask.cuda()
-                #             y=y.cuda()
-                # print("Output",ret['imputations'].shape)
-                # print("Output",ret_f['imputations'].shape)
-                # print("Output mask",testMask.shape)
+                FLoss = FLoss + ret_f["loss"]
                 outputBMI = ret["imputations"] * testMask
-
-                # print("outputBMI",outputBMI.shape)
-                # print(outputBMI[0])
-                # print("outputBMIF",outputBMIF.shape)
-                # print(outputBMIF[0])
+                outputBMIF = ret_f["imputations"] * testMask
                 mseLoss = mseLoss + (torch.sum(torch.abs(outputBMI - y))) / (
                     torch.sum(testMask) + 1e-5
                 )
-
-                # print("RMSELoss Revrese: ",mseLoss)
-                # print("RMSELoss Forward: ",mseLossF)
-                outBmi, inBmi = plotBmi(outputBMI, y, testMask)
+                mseLossF = mseLossF + (torch.sum(torch.abs(outputBMIF - y))) / (
+                    torch.sum(testMask) + 1e-5
+                )
+                outBmi, outBmiF, inBmi = plotBmi(outputBMI, outputBMIF, y, testMask)
                 oBmi.extend(outBmi)
-
+                oBmiF.extend(outBmiF)
                 iBmi.extend(inBmi)
 
             TBatches = TBatches + batch_idx + 1
         RLoss = RLoss / TBatches
         mseLoss = mseLoss / TBatches
         mseLossF = mseLossF / TBatches
-    # print("===================================")
     oBmi = np.asarray(oBmi)
     iBmi = np.asarray(iBmi)
     loss = oBmi - iBmi
@@ -529,37 +412,26 @@ def imputation_test(args, model, missingRate):
     res = variance ** 0.5
     ci = 1.96 * (res / (math.sqrt(len(loss))))
 
-    # print("Val R Loss:",RLoss)
     print("CI", ci)
     print("MAE Loss Reverse:", mseLoss)
     print("Total BMI values", samples)
     print("Deleted BMIs", pids)
     print("Missing%", pids / samples)
-    # print("MAE Loss Forward:",mseLossF)
-    # print(outputBMI)
-    return oBmi, iBmi
+    return oBmi, oBmiF, iBmi
 
 
-def plotBmi(outBmi, inBmi, testMask):
+def plotBmi(outBmi, outBmiF, inBmi, testMask):
 
     outBmi = outBmi.cpu().detach().numpy()
+    outBmiF = outBmiF.cpu().detach().numpy()
     inBmi = inBmi.cpu().detach().numpy()
     testMask = testMask.cpu().detach().numpy()
 
-    # import matplotlib.pyplot as plt
-    #%matplotlib inline
-    # from matplotlib.ticker import MultipleLocator
     outBmi = outBmi[np.nonzero(testMask)]
+    outBmiF = outBmiF[np.nonzero(testMask)]
     inBmi = inBmi[np.nonzero(testMask)]
 
-    # print(outBmi)
-    # print(inBmi)
-    # print(outAge)
-    # print(outSex)
-
-    # print(sex.shape,age.shape)
-
-    return outBmi, inBmi
+    return outBmi, outBmiF, inBmi
 
 
 def run_evalFull(args, model):
@@ -576,15 +448,11 @@ def run_evalFull(args, model):
         for i in ["M", "F"]:
             files = "cond" + i + "val.csv"
 
-            #         drugFiles = 'drug'+G+'val.csv'
-
             maskFiles = "mask" + i + "val.csv"
-            # print(files)
 
             dataset = CSVDataset(
                 files, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=0
             )
-            # orig = CSVDataset('C:\\Users/mehak/Desktop/testganAggOrig.csv', int(args.seq_len*500),1356100,args.seq_len)
             maskDataset = CSVDataset(
                 maskFiles, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=1
             )
@@ -592,7 +460,6 @@ def run_evalFull(args, model):
             loader = DataLoader(
                 dataset, batch_size=1, num_workers=0, shuffle=False
             )  # number of times getitem is called in one iteration
-            # origLoader = DataLoader(orig,batch_size=1,num_workers=0, shuffle=False)
             maskLoader = DataLoader(
                 maskDataset, batch_size=1, num_workers=0, shuffle=False
             )
@@ -601,8 +468,6 @@ def run_evalFull(args, model):
 
             # for every batch
             for batch_idx, allData in enumerate(zip(loader, maskLoader)):
-                # bmi_norm=dataset.bmi_norm
-                # print('batch: {}'.format(batch_idx))
                 data, mask = allData
                 pids = data[1]
                 data = data[0]
@@ -612,38 +477,22 @@ def run_evalFull(args, model):
                 rdecay = mask[:, :, :, 7]
                 bmi = mask[:, :, :, 5]
                 mask = mask[:, :, :, 4]
-
-                #             print(data.shape)
                 bmi = bmi.unsqueeze(3)
-                #             print(bmi.shape)
-                #             print(bmi[0,0,:,0])
-
                 data = torch.cat((data, bmi), dim=3)
-                #             print(data.shape)
-                #             print(data[0,0,:,228])
-
                 data = data.squeeze()
                 mask = mask.squeeze()
                 decay = decay.squeeze()
                 rdecay = rdecay.squeeze()
                 bmi = bmi.squeeze()
-                # print("Data:",data[0,0,:])
-                # print(decay.shape)
 
-                ret = run_on_batch(
+                ret_f, ret = run_on_batch(
                     model, data, mask, decay, rdecay, args, optimizer=None
                 )  # ,bmi_norm)
                 RLoss = RLoss + ret["loss"]
 
-                # T.cuda.empty_cache()
-                # paramsE=list(model['e'].parameters())
-                # paramsG=list(model['g'].parameters())
-                # print("AFTER PARAM",paramsE[0][20],paramsG[8][0][0])
             TBatches = TBatches + batch_idx + 1
         RLoss = RLoss / TBatches
-    # print("===================================")
     print("Val R Loss:", RLoss)
-    # print(outputBMI)
     return RLoss
 
 
@@ -662,7 +511,7 @@ def run_epoch(args, model):
     if args.resume_training:
         checkpoint = T.load(save_path)
         optimizer.load_state_dict(checkpoint["trainer"])
-        early_stopping(14.155674, model, optimizer, save_path)
+        early_stopping(16.972769, model, optimizer, save_path)
 
     # for evrey epoch
     for epoch in range(args.num_epochs):
@@ -675,18 +524,9 @@ def run_epoch(args, model):
 
         for i in ["M", "F"]:
 
-            # Yannick
-            # files = "cond" + i + "train.csv"
-            files = "data/mimic/preprocess/mimicTrain.csv"
+            files = "cond" + i + "train.csv"
+            maskFiles = "mask" + i + "train.csv"
 
-            #         drugFiles = 'drug'+G+'train.csv'
-
-            # maskFiles = "mask" + i + "train.csv"
-            maskFiles = "data/mimic/preprocess/mimicTrainMask.csv"
-
-            # print(files)
-            # print(maskFiles)
-            # print("====================New File========================")
             dataset = CSVDataset(
                 files, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=0
             )
@@ -702,55 +542,31 @@ def run_epoch(args, model):
             )
             # for every batch
             for batch_idx, allData in enumerate(zip(loader, maskLoader)):
-                # bmi_norm=dataset.bmi_norm
-                # print('batch: {}'.format(batch_idx))
                 data, mask = allData
                 pids = data[1]
                 data = data[0]
                 data = data[:, :, :, 1:]
-                #             if args.female:
-                #                 data=data[:,:,:,1:229]#Female = 1:229, Male = 1:334]
-
-                #             if args.male:
-                #                 data=data[:,:,:,1:611]#Female = 1:229, Male = 1:334]
 
                 decay = mask[:, :, :, 6]
                 rdecay = mask[:, :, :, 7]
                 bmi = mask[:, :, :, 5]
                 mask = mask[:, :, :, 4]
 
-                #             print(data.shape)
                 bmi = bmi.unsqueeze(3)
-                #             print(bmi.shape)
-                #             print(bmi[0,0,:,0])
-
                 data = torch.cat((data, bmi), dim=3)
-                #                 print(data.shape)
-                #             print(data[0,0,:,228])
 
                 data = data.squeeze()
                 mask = mask.squeeze()
                 decay = decay.squeeze()
                 rdecay = rdecay.squeeze()
                 bmi = bmi.squeeze()
-                #                 print("Data:",data.shape)
-                #                 print(decay.shape)
-                #                 print(mask.shape)
 
-                ret = run_on_batch(
+                ret_f, ret = run_on_batch(
                     model, data, mask, decay, rdecay, args, optimizer
                 )  # ,bmi_norm)
                 RLoss = RLoss + ret["loss"].item()
 
-                # T.cuda.empty_cache()
-                # paramsE=list(model['e'].parameters())
-                # paramsG=list(model['g'].parameters())
-                # print("AFTER PARAM",paramsE[0][20],paramsG[8][0][0])
-
             TBatches = TBatches + batch_idx + 1
-        # print(TBatches)
-        # print("File:", i, "loss_R:", "%.4f"%RLoss/(batch_idx+1), "loss_G:", "%.4f"%GLoss/(batch_idx+1), "loss_D:", "%.4f"%DLoss/(batch_idx+1))
-        # print(len(encoded))
         RLoss = RLoss / TBatches
 
         print("EPOCH:", epoch, "loss_R:", "%.4f" % RLoss)
@@ -760,9 +576,7 @@ def run_epoch(args, model):
         valid_loss = run_evalFull(args, model)
 
         valLoss.append(valid_loss)
-        # plotBmi(outBmi , inBmi)
 
-        # if epoch<1 or epoch >5:
         if not (T.isnan(valid_loss)):
             early_stopping(valid_loss, model, optimizer, save_path)
 
@@ -784,9 +598,7 @@ def run(args):
     else:
         print("No GPU available, training on CPU.")
 
-    model = MRNN(args)
-
-    # print("Model",model)
+    model = BRITS2(args)
 
     if torch.cuda.is_available():
         model = model.cuda()
@@ -795,7 +607,6 @@ def run(args):
         checkpoint = T.load(save_path)
         model.load_state_dict(checkpoint["model"])
         trainLoss, valLoss = run_epoch(args, model)
-        # trainLoss, valLoss = run_evalFull(args, model)
         return trainLoss, valLoss
 
     elif args.train:
