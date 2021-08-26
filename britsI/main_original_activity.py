@@ -1,5 +1,4 @@
 import os
-
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 import torch
 import torch.nn as nn
@@ -23,7 +22,7 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder, MinMaxScaler
 from argparse import ArgumentParser
 
 # save_path = "data/saved_models/airReverse.tar"  # vaegan_model - Copy.tar"
-save_path = "data/saved_models/essai.pt"
+save_path = "data/saved_models/brits_original_activity.pt"
 import warnings
 
 warnings.filterwarnings("ignore")
@@ -107,7 +106,7 @@ class EarlyStopping:
     def save_checkpoint(self, val_loss, model, optimizer, save_path):
         """Saves model when validation loss decrease."""
         if self.verbose:
-            print( f"Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}). Saving model ..." )
+            print(f"Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}). Saving model ...")
         print(save_path)
         input("waiting")
         T.save({"model": model.state_dict(), "trainer": optimizer.state_dict()}, save_path)
@@ -159,9 +158,7 @@ def pred_test(args, model, predWin):
 
         if args.mimic:
             data = pd.read_csv(".../aaai/data/mimic/preprocess/mimicTest.csv", header=0)
-            mask = pd.read_csv(
-                ".../aaai/data/mimic/preprocess/mimicTestMask.csv", header=0
-            )
+            mask = pd.read_csv(".../aaai/data/mimic/preprocess/mimicTestMask.csv", header=0)
             del data["subject_id"]
             del data["charttime"]
             del mask["subject_id"]
@@ -224,40 +221,40 @@ def pred_test(args, model, predWin):
             j = 20
             if predWin == 8:
                 k = 16
-                decay[i, j - k : j] = T.tensor(
+                decay[i, j - k: j] = T.tensor(
                     [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8]
                 )
-                rdecay[i, j - k : j] = T.tensor(
+                rdecay[i, j - k: j] = T.tensor(
                     [8, 7.5, 7, 6.5, 6, 5.5, 5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1, 0.5]
                 )
             elif predWin == 7:
                 k = 14
-                decay[i, j - k : j] = T.tensor(
+                decay[i, j - k: j] = T.tensor(
                     [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7]
                 )
-                rdecay[i, j - k : j] = (
+                rdecay[i, j - k: j] = (
                     T.tensor([7, 6.5, 6, 5.5, 5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1, 0.5])
                     * 120
                 )
             elif predWin == 6:
                 k = 12
-                decay[i, j - k : j] = T.tensor(
+                decay[i, j - k: j] = T.tensor(
                     [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6]
                 )
-                rdecay[i, j - k : j] = T.tensor(
+                rdecay[i, j - k: j] = T.tensor(
                     [6, 5.5, 5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1, 0.5]
                 )
             elif predWin == 5:
                 k = 10
-                decay[i, j - k : j] = T.tensor([0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5])
-                rdecay[i, j - k : j] = T.tensor(
+                decay[i, j - k: j] = T.tensor([0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5])
+                rdecay[i, j - k: j] = T.tensor(
                     [5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1, 0.5]
                 )
 
-            data[i, j - k : j, :] = 0
-            mask[i, j - k : j] = 0
-            y[i, 0 : j - k] = 0
-            testMask[i, 0 : j - k] = 0
+            data[i, j - k:j, :] = 0
+            mask[i, j - k: j] = 0
+            y[i, 0: j - k] = 0
+            testMask[i, 0: j - k] = 0
 
         ret_f, ret = run_on_batch(
             model, data, mask, decay, rdecay, args, optimizer=None
@@ -645,9 +642,7 @@ def run_epoch(args, model):
 
         if args.air:
             data = pd.read_csv("./data/air/preprocess/airTrain.csv", header=0)
-            mask = pd.read_csv(
-                "./data/air/preprocess/airTrainMask.csv", header=0
-            )
+            mask = pd.read_csv("./data/air/preprocess/airTrainMask.csv", header=0)
             data = data[
                 [
                     "Date",
@@ -674,12 +669,8 @@ def run_epoch(args, model):
             del mask["Date"]
 
         if args.mimic:
-            data = pd.read_csv(
-                "./data/mimic/preprocess/mimicTrain.csv", header=0
-            )
-            mask = pd.read_csv(
-                "./data/mimic/preprocess/mimicTrainMask.csv", header=0
-            )
+            data = pd.read_csv("./data/mimic/preprocess/mimicTrain.csv", header=0)
+            mask = pd.read_csv("./data/mimic/preprocess/mimicTrainMask.csv", header=0)
             del data["subject_id"]
             del data["charttime"]
             del mask["subject_id"]

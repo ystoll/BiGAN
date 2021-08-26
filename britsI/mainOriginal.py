@@ -21,7 +21,6 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder, MinMaxScaler
 
 from argparse import ArgumentParser
 
-save_path = "data/saved_models/activityReverse.tar"  # vaegan_model - Copy.tar"
 import warnings
 
 warnings.filterwarnings("ignore")
@@ -29,6 +28,8 @@ warnings.simplefilter("ignore")
 
 if not os.path.exists("data/saved_models"):
     os.makedirs("data/saved_models")
+# save_path = "data/saved_models/activityReverse.tar"  # vaegan_model - Copy.tar"
+save_path = "data/saved_models/brits_original.pt"  # vaegan_model - Copy.tar"
 
 
 ARG_PARSER = ArgumentParser()
@@ -38,8 +39,8 @@ ARG_PARSER.add_argument("--dfeatures", default=43, type=int)
 ARG_PARSER.add_argument("--ehidden", default=300, type=int)
 ARG_PARSER.add_argument("--model", type=str)
 
-ARG_PARSER.add_argument("--ehr", default=True)
-ARG_PARSER.add_argument("--air", default=False)
+ARG_PARSER.add_argument("--ehr", default=False)
+ARG_PARSER.add_argument("--air", default=True)
 ARG_PARSER.add_argument("--mimic", default=False)
 
 ARG_PARSER.add_argument("--num_epochs", default=100, type=int)
@@ -71,9 +72,7 @@ class CSVDataset(Dataset):
         self.len = int(length)  # number of times total getitem is called
         self.seq_len = seq_len
         self.flag = flag
-        self.reader = pd.read_csv(
-            self.path, header=0, chunksize=self.chunksize
-        )  # ,names=['data']))
+        self.reader = pd.read_csv(self.path, header=0, chunksize=self.chunksize)  # ,names=['data']))
 
     def __getitem__(self, index):
         data = self.reader.get_chunk(self.chunksize)
@@ -166,9 +165,13 @@ def pred_test(args, model, predWin):
     oSex = []
     imputations = []
     with T.autograd.no_grad():
-        for i in ["M", "F"]:
-            files = "cond" + i + "test.csv"
-            maskFiles = "mask" + i + "test.csv"
+        # Yannick
+        # for i in ["M", "F"]:
+        #     files = "cond" + i + "test.csv"
+        #     maskFiles = "mask" + i + "test.csv"
+        for i in [1]:
+            files = "data/air/preprocess/airTest.csv"
+            maskFiles = "data/air/preprocess/airTestMask.csv"
 
             dataset = CSVDataset(
                 files, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=0
@@ -222,10 +225,10 @@ def pred_test(args, model, predWin):
                     elif predWin == 5:
                         k = 20
 
-                    data[i, j - k : j, :] = 0
-                    mask[i, j - k : j] = 0
-                    y[i, 0 : j - k] = 0
-                    testMask[i, 0 : j - k] = 0
+                    data[i, j - k: j, :] = 0
+                    mask[i, j - k: j] = 0
+                    y[i, 0: j - k] = 0
+                    testMask[i, 0: j - k] = 0
 
                 ret_f, ret = run_on_batch(
                     model, data, mask, decay, rdecay, args, optimizer=None, epoch=None
@@ -280,9 +283,13 @@ def imputation_test(args, model, missingRate):
     samples = 0
     pids = 0
     with T.autograd.no_grad():
-        for i in ["M", "F"]:
-            files = "cond" + i + "test.csv"
-            maskFiles = "mask" + i + "test.csv"
+        # Yannick
+        # for i in ["M", "F"]:
+        #     files = "cond" + i + "test.csv"
+        #     maskFiles = "mask" + i + "test.csv"
+        for i in [1]:
+            files = "data/air/preprocess/airTest.csv"
+            maskFiles = "data/air/preprocess/airTestMask.csv"
 
             dataset = CSVDataset(
                 files, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=0
@@ -445,24 +452,19 @@ def run_evalFull(args, model):
     oSex = []
 
     with T.autograd.no_grad():
-        for i in ["M", "F"]:
-            files = "cond" + i + "val.csv"
+        # Yannick
+        # for i in ["M", "F"]:
+        #     files = "cond" + i + "val.csv"
+        #     maskFiles = "mask" + i + "val.csv"
+        for i in [1]:
+            files = "data/air/preprocess/airTest.csv"
+            maskFiles = "data/air/preprocess/airTestMask.csv"
 
-            maskFiles = "mask" + i + "val.csv"
+            dataset = CSVDataset(files, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=0)
+            maskDataset = CSVDataset(maskFiles, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=1)
 
-            dataset = CSVDataset(
-                files, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=0
-            )
-            maskDataset = CSVDataset(
-                maskFiles, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=1
-            )
-
-            loader = DataLoader(
-                dataset, batch_size=1, num_workers=0, shuffle=False
-            )  # number of times getitem is called in one iteration
-            maskLoader = DataLoader(
-                maskDataset, batch_size=1, num_workers=0, shuffle=False
-            )
+            loader = DataLoader(dataset, batch_size=1, num_workers=0, shuffle=False)  # number of times getitem is called in one iteration
+            maskLoader = DataLoader(maskDataset, batch_size=1, num_workers=0, shuffle=False)
 
             loss = {}
 
@@ -485,9 +487,7 @@ def run_evalFull(args, model):
                 rdecay = rdecay.squeeze()
                 bmi = bmi.squeeze()
 
-                ret_f, ret = run_on_batch(
-                    model, data, mask, decay, rdecay, args, optimizer=None
-                )  # ,bmi_norm)
+                ret_f, ret = run_on_batch(model, data, mask, decay, rdecay, args, optimizer=None)  # ,bmi_norm)
                 RLoss = RLoss + ret["loss"]
 
             TBatches = TBatches + batch_idx + 1
@@ -521,18 +521,17 @@ def run_epoch(args, model):
         RLoss = 0
         TBatches = 0
         print("=============EPOCH=================")
+        # Yannick
+        # for i in ["M", "F"]:
+        #     files = "cond" + i + "train.csv"
+        #     maskFiles = "mask" + i + "train.csv"
 
-        for i in ["M", "F"]:
+        for i in [1]:
+            files = "data/air/preprocess/airTest.csv"
+            maskFiles = "data/air/preprocess/airTestMask.csv"
 
-            files = "cond" + i + "train.csv"
-            maskFiles = "mask" + i + "train.csv"
-
-            dataset = CSVDataset(
-                files, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=0
-            )
-            maskDataset = CSVDataset(
-                maskFiles, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=1
-            )
+            dataset = CSVDataset(files, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=0)
+            maskDataset = CSVDataset(maskFiles, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=1)
 
             loader = DataLoader(
                 dataset, batch_size=1, num_workers=0, shuffle=False
