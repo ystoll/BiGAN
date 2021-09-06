@@ -79,20 +79,19 @@ class CSVDataset(Dataset):
         data = data.replace(np.inf, 0)
         data = data.replace(np.nan, 0)
         data = data.fillna(0)
+        # print(data.columns)
+        # input("waiting")
+        data = data.drop(["date_format"], axis=1)
         if self.flag == 0:
-            pids = data["person_id"]
+            pids = data["epoch_format"]
             pids = T.as_tensor(pids.values.astype(float), dtype=T.long)
 
             data = T.as_tensor(data.values.astype(float), dtype=T.float32)
-            data = data.view(
-                int(data.shape[0] / self.seq_len), self.seq_len, data.shape[1]
-            )
+            data = data.view(int(data.shape[0] / self.seq_len), self.seq_len, data.shape[1])
             return data, pids
         else:
             data = T.as_tensor(data.values.astype(float), dtype=T.float32)
-            data = data.view(
-                int(data.shape[0] / self.seq_len), self.seq_len, data.shape[1]
-            )
+            data = data.view(int(data.shape[0] / self.seq_len), self.seq_len, data.shape[1])
 
         return data
 
@@ -141,12 +140,8 @@ class EarlyStopping:
     def save_checkpoint(self, val_loss, model, optimizer, save_path):
         """Saves model when validation loss decrease."""
         if self.verbose:
-            print(
-                f"Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ..."
-            )
-        T.save(
-            {"model": model.state_dict(), "trainer": optimizer.state_dict()}, save_path
-        )
+            print(f"Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...")
+        T.save({"model": model.state_dict(), "trainer": optimizer.state_dict()}, save_path)
         self.val_loss_min = val_loss
 
 
@@ -173,19 +168,11 @@ def pred_test(args, model, predWin):
             files = "data/air/preprocess/airTest.csv"
             maskFiles = "data/air/preprocess/airTestMask.csv"
 
-            dataset = CSVDataset(
-                files, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=0
-            )
-            maskDataset = CSVDataset(
-                maskFiles, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=1
-            )
+            dataset = CSVDataset(files, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=0)
+            maskDataset = CSVDataset(maskFiles, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=1)
 
-            loader = DataLoader(
-                dataset, batch_size=1, num_workers=0, shuffle=False
-            )  # number of times getitem is called in one iteration
-            maskLoader = DataLoader(
-                maskDataset, batch_size=1, num_workers=0, shuffle=False
-            )
+            loader = DataLoader(dataset, batch_size=1, num_workers=0, shuffle=False)  # number of times getitem is called in one iteration
+            maskLoader = DataLoader(maskDataset, batch_size=1, num_workers=0, shuffle=False)
 
             loss = {}
 
@@ -230,19 +217,13 @@ def pred_test(args, model, predWin):
                     y[i, 0: j - k] = 0
                     testMask[i, 0: j - k] = 0
 
-                ret_f, ret = run_on_batch(
-                    model, data, mask, decay, rdecay, args, optimizer=None, epoch=None
-                )  # ,bmi_norm)
+                ret_f, ret = run_on_batch(model, data, mask, decay, rdecay, args, optimizer=None, epoch=None)  # ,bmi_norm)
                 RLoss = RLoss + ret["loss"]
                 FLoss = FLoss + ret_f["loss"]
                 outputBMI = ret["imputations"] * testMask
                 outputBMIF = ret_f["imputations"] * testMask
-                mseLoss = mseLoss + (torch.sum(torch.abs(outputBMI - y))) / (
-                    torch.sum(testMask) + 1e-5
-                )
-                mseLossF = mseLossF + (torch.sum(torch.abs(outputBMIF - y))) / (
-                    torch.sum(testMask) + 1e-5
-                )
+                mseLoss = mseLoss + (torch.sum(torch.abs(outputBMI - y))) / (torch.sum(testMask) + 1e-5)
+                mseLossF = mseLossF + (torch.sum(torch.abs(outputBMIF - y))) / (torch.sum(testMask) + 1e-5)
                 outBmi, outBmiF, inBmi = plotBmi(outputBMI, outputBMIF, y, testMask)
                 oBmi.extend(outBmi)
                 oBmiF.extend(outBmiF)
@@ -291,19 +272,11 @@ def imputation_test(args, model, missingRate):
             files = "data/air/preprocess/airTest.csv"
             maskFiles = "data/air/preprocess/airTestMask.csv"
 
-            dataset = CSVDataset(
-                files, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=0
-            )
-            maskDataset = CSVDataset(
-                maskFiles, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=1
-            )
+            dataset = CSVDataset(files, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=0)
+            maskDataset = CSVDataset(maskFiles, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=1)
 
-            loader = DataLoader(
-                dataset, batch_size=1, num_workers=0, shuffle=False
-            )  # number of times getitem is called in one iteration
-            maskLoader = DataLoader(
-                maskDataset, batch_size=1, num_workers=0, shuffle=False
-            )
+            loader = DataLoader(dataset, batch_size=1, num_workers=0, shuffle=False)  # number of times getitem is called in one iteration
+            maskLoader = DataLoader(maskDataset, batch_size=1, num_workers=0, shuffle=False)
 
             loss = {}
 
@@ -389,19 +362,13 @@ def imputation_test(args, model, missingRate):
                     testMask[i, :] = testMask[i, :] - mask[i, :]
                     y[i, :] = y[i, :] * testMask[i, :]
 
-                ret_f, ret = run_on_batch(
-                    model, data, mask, decay, rdecay, args, optimizer=None, epoch=None
-                )  # ,bmi_norm)
+                ret_f, ret = run_on_batch(model, data, mask, decay, rdecay, args, optimizer=None, epoch=None)  # ,bmi_norm)
                 RLoss = RLoss + ret["loss"]
                 FLoss = FLoss + ret_f["loss"]
                 outputBMI = ret["imputations"] * testMask
                 outputBMIF = ret_f["imputations"] * testMask
-                mseLoss = mseLoss + (torch.sum(torch.abs(outputBMI - y))) / (
-                    torch.sum(testMask) + 1e-5
-                )
-                mseLossF = mseLossF + (torch.sum(torch.abs(outputBMIF - y))) / (
-                    torch.sum(testMask) + 1e-5
-                )
+                mseLoss = mseLoss + (torch.sum(torch.abs(outputBMI - y))) / (torch.sum(testMask) + 1e-5)
+                mseLossF = mseLossF + (torch.sum(torch.abs(outputBMIF - y))) / (torch.sum(testMask) + 1e-5)
                 outBmi, outBmiF, inBmi = plotBmi(outputBMI, outputBMIF, y, testMask)
                 oBmi.extend(outBmi)
                 oBmiF.extend(outBmiF)
@@ -513,7 +480,7 @@ def run_epoch(args, model):
         optimizer.load_state_dict(checkpoint["trainer"])
         early_stopping(16.972769, model, optimizer, save_path)
 
-    # for evrey epoch
+    # for every epoch
     for epoch in range(args.num_epochs):
         model.train()
 
@@ -527,18 +494,19 @@ def run_epoch(args, model):
         #     maskFiles = "mask" + i + "train.csv"
 
         for i in [1]:
-            files = "data/air/preprocess/airTest.csv"
-            maskFiles = "data/air/preprocess/airTestMask.csv"
+            # Yannick
+            # files = "data/air/preprocess/airTest.csv"
+            # maskFiles = "data/air/preprocess/airTestMask.csv"
+            files = "data/ibat/initial/airTest.csv"
+            maskFiles = "data/ibat/initial/airTestMask.csv"
 
-            dataset = CSVDataset(files, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=0)
-            maskDataset = CSVDataset(maskFiles, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=1)
+            dataset = CSVDataset(files, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=1)
+            # Yannick flag = 0 --> flag = 1
+            maskDataset = CSVDataset(maskFiles, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=0)
 
-            loader = DataLoader(
-                dataset, batch_size=1, num_workers=0, shuffle=False
-            )  # number of times getitem is called in one iteration
-            maskLoader = DataLoader(
-                maskDataset, batch_size=1, num_workers=0, shuffle=False
-            )
+            loader = DataLoader(dataset, batch_size=1, num_workers=0, shuffle=False)  # number of times getitem is called in one iteration
+            maskLoader = DataLoader(maskDataset, batch_size=1, num_workers=0, shuffle=False)
+
             # for every batch
             for batch_idx, allData in enumerate(zip(loader, maskLoader)):
                 data, mask = allData
@@ -560,9 +528,7 @@ def run_epoch(args, model):
                 rdecay = rdecay.squeeze()
                 bmi = bmi.squeeze()
 
-                ret_f, ret = run_on_batch(
-                    model, data, mask, decay, rdecay, args, optimizer
-                )  # ,bmi_norm)
+                ret_f, ret = run_on_batch(model, data, mask, decay, rdecay, args, optimizer)  # ,bmi_norm)
                 RLoss = RLoss + ret["loss"].item()
 
             TBatches = TBatches + batch_idx + 1

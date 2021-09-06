@@ -14,7 +14,6 @@ import pandas as pd
 
 import math
 import argparse
-import import_ipynb
 from brits2_i_original import BRITS2, run_on_batch
 from sklearn import metrics
 from sklearn.preprocessing import StandardScaler, OneHotEncoder, MinMaxScaler
@@ -107,10 +106,27 @@ class EarlyStopping:
         """Saves model when validation loss decrease."""
         if self.verbose:
             print(f"Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}). Saving model ...")
-        print(save_path)
-        input("waiting")
+        # Yannick
+        # print(save_path)
+        # input("waiting")
         T.save({"model": model.state_dict(), "trainer": optimizer.state_dict()}, save_path)
         self.val_loss_min = val_loss
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 def pred_test(args, model, predWin):
@@ -256,21 +272,15 @@ def pred_test(args, model, predWin):
             y[i, 0: j - k] = 0
             testMask[i, 0: j - k] = 0
 
-        ret_f, ret = run_on_batch(
-            model, data, mask, decay, rdecay, args, optimizer=None
-        )
+        ret_f, ret = run_on_batch(model, data, mask, decay, rdecay, args, optimizer=None)
         RLoss = RLoss + ret["loss"]
         FLoss = FLoss + ret_f["loss"]
         testMask = testMask.cuda()
         y = y.cuda()
         outputBMI = ret["imputations"] * testMask
         outputBMIF = ret_f["imputations"] * testMask
-        mseLoss = mseLoss + (torch.sum(torch.abs(outputBMI - y))) / (
-            torch.sum(testMask) + 1e-5
-        )
-        mseLossF = mseLossF + (torch.sum(torch.abs(outputBMIF - y))) / (
-            torch.sum(testMask) + 1e-5
-        )
+        mseLoss = mseLoss + (torch.sum(torch.abs(outputBMI - y))) / (torch.sum(testMask) + 1e-5)
+        mseLossF = mseLossF + (torch.sum(torch.abs(outputBMIF - y))) / (torch.sum(testMask) + 1e-5)
         outBmi, outBmiF, inBmi = plotBmi(outputBMI, outputBMIF, y, testMask)
         oBmi.extend(outBmi)
         oBmiF.extend(outBmiF)
@@ -293,6 +303,19 @@ def pred_test(args, model, predWin):
     # print("MAE Loss Forward:",mseLossF)
     # print(outputBMI)
     return oBmi, oBmiF, iBmi
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 def imputation_test(args, model, missingRate):
@@ -464,21 +487,15 @@ def imputation_test(args, model, missingRate):
 
             y[i, :] = y[i, :] * testMask[i, :]
 
-        ret_f, ret = run_on_batch(
-            model, data, mask, decay, rdecay, args, optimizer=None
-        )
+        ret_f, ret = run_on_batch(model, data, mask, decay, rdecay, args, optimizer=None)
         RLoss = RLoss + ret["loss"]
         FLoss = FLoss + ret_f["loss"]
         testMask = testMask.cuda()
         y = y.cuda()
         outputBMI = ret["imputations"] * testMask
         outputBMIF = ret_f["imputations"] * testMask
-        mseLoss = mseLoss + (torch.sum(torch.abs(outputBMI - y))) / (
-            torch.sum(testMask) + 1e-5
-        )
-        mseLossF = mseLossF + (torch.sum(torch.abs(outputBMIF - y))) / (
-            torch.sum(testMask) + 1e-5
-        )
+        mseLoss = mseLoss + (torch.sum(torch.abs(outputBMI - y))) / (torch.sum(testMask) + 1e-5)
+        mseLossF = mseLossF + (torch.sum(torch.abs(outputBMIF - y))) / (torch.sum(testMask) + 1e-5)
         outBmi, outBmiF, inBmi = plotBmi(outputBMI, outputBMIF, y, testMask)
         oBmi.extend(outBmi)
         oBmiF.extend(outBmiF)
@@ -500,6 +517,13 @@ def imputation_test(args, model, missingRate):
     return oBmi, oBmiF, iBmi
 
 
+
+
+
+
+
+
+
 def plotBmi(outBmi, outBmiF, inBmi, testMask):
 
     outBmi = outBmi.cpu().detach().numpy()
@@ -514,6 +538,22 @@ def plotBmi(outBmi, outBmiF, inBmi, testMask):
     return outBmi, outBmiF, inBmi
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def run_evalFull(args, model):
     model.eval()
 
@@ -525,6 +565,7 @@ def run_evalFull(args, model):
     oSex = []
 
     with T.autograd.no_grad():
+
         if args.air:
             data = pd.read_csv("./data/air/preprocess/airVal.csv", header=0)
             mask = pd.read_csv("./data/air/preprocess/airValMask.csv", header=0)
@@ -555,9 +596,7 @@ def run_evalFull(args, model):
 
         if args.mimic:
             data = pd.read_csv("./data/mimic/preprocess/mimicVal.csv", header=0)
-            mask = pd.read_csv(
-                "./data/mimic/preprocess/mimicValMask.csv", header=0
-            )
+            mask = pd.read_csv("./data/mimic/preprocess/mimicValMask.csv", header=0)
             del data["subject_id"]
             del data["charttime"]
             del mask["subject_id"]
@@ -608,14 +647,24 @@ def run_evalFull(args, model):
         # print(mask.shape)
         # print(decay.shape)
 
-        ret_f, ret = run_on_batch(
-            model, data, mask, decay, rdecay, args, optimizer=None
-        )
+        ret_f, ret = run_on_batch(model, data, mask, decay, rdecay, args, optimizer=None)
         RLoss = RLoss + ret["loss"]
 
         RLoss = RLoss
     print("Val R Loss:", RLoss)
     return RLoss
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 def run_epoch(args, model):
@@ -717,9 +766,7 @@ def run_epoch(args, model):
         decay = decay.squeeze()
         rdecay = rdecay.squeeze()
 
-        ret_f, ret = run_on_batch(
-            model, data, mask, decay, rdecay, args, optimizer
-        )
+        ret_f, ret = run_on_batch(model, data, mask, decay, rdecay, args, optimizer)
         RLoss = RLoss + ret["loss"].item()
 
         RLoss = RLoss
@@ -743,6 +790,14 @@ def run_epoch(args, model):
         # plot_grad_flow(model['g'].named_parameters())
         # plot_grad_flow(model['d'].named_parameters())
     return trainLoss, valLoss
+
+
+
+
+
+
+
+
 
 
 def run(args):
@@ -786,6 +841,11 @@ def run(args):
         oBmi, oBmiF, iBmi = pred_test(args, model, args.pred_len)
 
         # return oBmi, oBmiF, iBmi
+
+
+
+
+
 
 
 # trainLoss, valLoss = run(ARGS)

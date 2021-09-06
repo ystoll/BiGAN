@@ -58,9 +58,7 @@ class RITS2(nn.Module):
 
         # self.regression = nn.Linear(RNN_HID_SIZE, 35)
         self.regression = nn.Linear(self.RNN_HID_SIZE, 1)
-        self.temp_decay = TemporalDecay(
-            input_size=self.NFEATURES, RNN_HID_SIZE=self.RNN_HID_SIZE
-        )
+        self.temp_decay = TemporalDecay(input_size=self.NFEATURES, RNN_HID_SIZE=self.RNN_HID_SIZE)
 
         # self.out = nn.Linear(RNN_HID_SIZE, 1)
 
@@ -119,9 +117,7 @@ class RITS2(nn.Module):
                 # print("Complement Vector",x_c[0,316])
 
                 # x_loss += torch.sum(torch.abs(x[:,316] - x_h[:,0]) * m) / (torch.sum(m) + 1e-5)
-                x_loss += torch.sum(torch.abs(x[:, self.var] - x_h[:, 0]) * m) / (
-                    torch.sum(m) + 1e-5
-                )
+                x_loss += torch.sum(torch.abs(x[:, self.var] - x_h[:, 0]) * m) / (torch.sum(m) + 1e-5)
 
                 # print("X_loss",x_loss)
                 m = m.unsqueeze(dim=1)
@@ -166,9 +162,7 @@ class RITS2(nn.Module):
                 # print("Complement Vector",x_c[0,316])
 
                 # x_loss += torch.sum(torch.abs(x[:,316] - x_h[:,0]) * m) / (torch.sum(m) + 1e-5)
-                x_loss += torch.sum(torch.abs(x[:, self.var] - x_h[:, 0]) * m) / (
-                    torch.sum(m) + 1e-5
-                )
+                x_loss += torch.sum(torch.abs(x[:, self.var] - x_h[:, 0]) * m) / (torch.sum(m) + 1e-5)
 
                 # print("X_loss",x_loss)
                 m = m.unsqueeze(dim=1)
