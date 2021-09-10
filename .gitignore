@@ -1,3 +1,4 @@
 __pycache__/
 data/ibat/initial/raw_results_demo_non_agregated.csv
 .gitignore
+.~
