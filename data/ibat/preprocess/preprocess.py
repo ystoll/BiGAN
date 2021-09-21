@@ -143,7 +143,7 @@ def save_files(path_folder=ARGS.path_folder, name_dataset=ARGS.dataset, dataset=
     path_dataset = os.path.join(dir_preprocess, type_dataset + "_" + name_dataset)
     dataset.to_csv(path_dataset, index=False)
 
-    path_mask = os.path.join(path_folder, "preprocess", "mask_" + name_dataset)
+    path_mask = os.path.join(path_folder, "preprocess", "mask_" + type_dataset + "_" + name_dataset)
     mask.to_csv(path_mask, index=False)
 
 
