@@ -1,59 +1,43 @@
-import json
 import os
-import numpy as np
-from numpy.core.fromnumeric import shape
 import pandas as pd
 import argparse
 from argparse import ArgumentParser
-import random
-from sklearn.experimental import enable_iterative_imputer
-from sklearn.impute import IterativeImputer
-from sklearn.model_selection import train_test_split
-import pickle
 from datetime import timedelta
 from datetime import datetime
-from torch.utils import data
-
-from torch.utils.data import dataset
-
-
+from sklearn.model_selection import train_test_split
 
 ARG_PARSER = ArgumentParser()
 
 ARG_PARSER.add_argument("--test_size", default=0.1, type=float)
 ARG_PARSER.add_argument("--val_size", default=0.05, type=float)
 ARG_PARSER.add_argument("--seq_len", default=20, type=float)
-ARG_PARSER.add_argument("--target_field", default="zigduino-3", type=str)
-ARG_PARSER.add_argument("--path_folder", default = '/scratch/stoll/BiGAN/data/ibat', type=str)
-ARG_PARSER.add_argument("--dataset", default = 'raw_results_demo.csv', type=str)
+ARG_PARSER.add_argument("--target_field", default="zigduino-3:temperature", type=str)
+ARG_PARSER.add_argument("--path_folder", default='/scratch/stoll/BiGAN/data/ibat', type=str)
+ARG_PARSER.add_argument("--dataset", default='raw_results_demo.csv', type=str)
 
 
 ARGS = ARG_PARSER.parse_args(args=[])
-# TARGET_FIELD = ARGS.target_field
-# TARGET_FIELD = "zigduino-3:temperature"
 
 
-
-
-#decay
+# decay
 def decay(data=None, target_field=ARGS.target_field):
     data['interval'] = 0
-    j=0
-    for n in range(int(data.shape[0]/20)):
-        i=0
+    j = 0
+    for n in range(int(data.shape[0] / 20)):
+        i = 0
         df_group = data.iloc[n * 20:(n * 20) + 20, :]
-        for index, row in df_group.iterrows(): # go over mask
+        for index, row in df_group.iterrows():  # go over mask
             try:
-                if(i==0):
-                    row['interval']=0
+                if(i == 0):
+                    row['interval'] = 0
                     i = 1
                 else:
                     if(prev[target_field] == 1):
                         row['interval'] = timedelta.total_seconds(datetime.strptime(str(row['Date'])[:10] + " " + str(row['Time']), "%Y-%m-%d %H:%M:%S")
-                                                                - datetime.strptime(str(prev['Date'])[:10] + " " + str(prev['Time']), "%Y-%m-%d %H:%M:%S"))
+                                                                  - datetime.strptime(str(prev['Date'])[:10] + " " + str(prev['Time']), "%Y-%m-%d %H:%M:%S"))
                     elif(prev[target_field] == 0):
                         row['interval'] = timedelta.total_seconds(datetime.strptime(str(row['Date'])[:10] + " " + str(row['Time']), "%Y-%m-%d %H:%M:%S")
-                                                                - datetime.strptime(str(prev['Date'])[:10] + " " + str(prev['Time']), "%Y-%m-%d %H:%M:%S")) + prev['interval']
+                                                                  - datetime.strptime(str(prev['Date'])[:10] + " " + str(prev['Time']), "%Y-%m-%d %H:%M:%S")) + prev['interval']
             except ValueError as e:
                 print(e)
                 print(str(row['Date']) + " " + str(row['Time']))
@@ -63,8 +47,9 @@ def decay(data=None, target_field=ARGS.target_field):
             data.iloc[j, 3] = row['interval']
             j = j + 1
 
-    data['interval'] = data['interval'].apply(lambda x: abs(x/60))
+    data['interval'] = data['interval'].apply(lambda x: abs(x / 60))
     return data
+
 
 def rdecay(data, target_field=ARGS.target_field):
     data['intervalReverse'] = 0
@@ -74,22 +59,23 @@ def rdecay(data, target_field=ARGS.target_field):
         df_group = data.iloc[n * 20:(n * 20) + 20, :]
         df_group = df_group[::-1]
         for index, row in df_group.iterrows():  # go over mask
-            if(i==0):
+            if(i == 0):
                 row['intervalReverse'] = 0
-                i=1
+                i = 1
             else:
                 if(prev[target_field] == 1):
                     row['intervalReverse'] = timedelta.total_seconds(datetime.strptime(str(row['Date'])[:10] + " " + str(row['Time']), "%Y-%m-%d %H:%M:%S")
-                                                                   - datetime.strptime(str(prev['Date'])[:10] + " " + str(prev['Time']), "%Y-%m-%d %H:%M:%S"))
+                                                                     - datetime.strptime(str(prev['Date'])[:10] + " " + str(prev['Time']), "%Y-%m-%d %H:%M:%S"))
                 elif(prev[target_field] == 0):
                     row['intervalReverse'] = timedelta.total_seconds(datetime.strptime(str(row['Date'])[:10] + " " + str(row['Time']), "%Y-%m-%d %H:%M:%S")
-                                                                   - datetime.strptime(str(prev['Date'])[:10] + " " + str(prev['Time']), "%Y-%m-%d %H:%M:%S")) + prev['interval']
+                                                                     - datetime.strptime(str(prev['Date'])[:10] + " " + str(prev['Time']), "%Y-%m-%d %H:%M:%S")) + prev['interval']
             prev = row
             data.iloc[j, 4] = row['intervalReverse']
             j = j - 1
 
     data['intervalReverse'] = data['intervalReverse'].apply(lambda x: abs(x / 60))
     return data
+
 
 def read_dataset(path_folder=ARGS.path_folder, dataset=ARGS.dataset):
 
@@ -113,7 +99,6 @@ def read_dataset(path_folder=ARGS.path_folder, dataset=ARGS.dataset):
     return dataset
 
 
-
 def group_by_seq(dataset=None, seq_len=ARGS.seq_len):
 
     rows = dataset.groupby('Month').count()['Date'] % seq_len
@@ -129,7 +114,6 @@ def group_by_seq(dataset=None, seq_len=ARGS.seq_len):
         final = pd.concat([final, temp])
 
     return final
-
 
 
 def split_train_test_val(dataset=None, test_size=ARGS.test_size, val_size=ARGS.val_size):
@@ -149,14 +133,6 @@ def get_mask(dataset=None, target_field=ARGS.target_field):
     mask[['Date', 'Time']] = dataset[['Date', 'Time']].copy()
     return mask
 
-# path = ARGS.path_dataset
-# name_dataset = os.path.basename(path)
-# name_folder = os.path.dirname(path)
-# print(os.path.basename(path))
-# print(os.path.dirname(path))
-# input("Waiting")
-
-
 
 def save_files(path_folder=ARGS.path_folder, name_dataset=ARGS.dataset, dataset=None, mask=None, type_dataset=None):
 
@@ -167,9 +143,8 @@ def save_files(path_folder=ARGS.path_folder, name_dataset=ARGS.dataset, dataset=
     path_dataset = os.path.join(dir_preprocess, type_dataset + "_" + name_dataset)
     dataset.to_csv(path_dataset, index=False)
 
-    path_mask = os.path.join(path_folder, "preprocess", "mask_"+name_dataset)
+    path_mask = os.path.join(path_folder, "preprocess", "mask_" + name_dataset)
     mask.to_csv(path_mask, index=False)
-
 
 
 def preprocess_data(ARGS=ARGS):
