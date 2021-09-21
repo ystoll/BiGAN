@@ -20,12 +20,12 @@ ARGS = ARG_PARSER.parse_args(args=[])
 
 
 # decay
-def decay(data=None, target_field=ARGS.target_field):
+def decay(data=None, seq_len=ARGS.seq_len, target_field=ARGS.target_field):
     data['interval'] = 0
     j = 0
-    for n in range(int(data.shape[0] / 20)):
+    for n in range(int(data.shape[0] / seq_len)):
         i = 0
-        df_group = data.iloc[n * 20:(n * 20) + 20, :]
+        df_group = data.iloc[n * seq_len:(n * seq_len) + seq_len, :]
         for index, row in df_group.iterrows():  # go over mask
             try:
                 if(i == 0):
@@ -51,12 +51,12 @@ def decay(data=None, target_field=ARGS.target_field):
     return data
 
 
-def rdecay(data, target_field=ARGS.target_field):
+def rdecay(data=None, seq_len=ARGS.seq_len, target_field=ARGS.target_field):
     data['intervalReverse'] = 0
     j = data.shape[0] - 1
-    for n in range(int(data.shape[0] / 20)):
+    for n in range(int(data.shape[0] / seq_len)):
         i = 0
-        df_group = data.iloc[n * 20:(n * 20) + 20, :]
+        df_group = data.iloc[n * seq_len:(n * seq_len) + seq_len, :]
         df_group = df_group[::-1]
         for index, row in df_group.iterrows():  # go over mask
             if(i == 0):
@@ -156,16 +156,16 @@ def preprocess_data(ARGS=ARGS):
     x_train, x_test, x_val = split_train_test_val(dataset=dataset, test_size=ARGS.test_size, val_size=ARGS.val_size)
 
     mask_train = get_mask(dataset=x_train, target_field=ARGS.target_field)
-    mask_train = decay(mask_train, target_field=ARGS.target_field)
-    mask_train = rdecay(mask_train, target_field=ARGS.target_field)
+    mask_train = decay(mask_train, seq_len=ARGS.seq_len, target_field=ARGS.target_field)
+    mask_train = rdecay(mask_train, seq_len=ARGS.seq_len, target_field=ARGS.target_field)
 
     mask_test = get_mask(dataset=x_test, target_field=ARGS.target_field)
-    mask_test = decay(mask_test, target_field=ARGS.target_field)
-    mask_test = rdecay(mask_test, target_field=ARGS.target_field)
+    mask_test = decay(mask_test, seq_len=ARGS.seq_len, target_field=ARGS.target_field)
+    mask_test = rdecay(mask_test, seq_len=ARGS.seq_len, target_field=ARGS.target_field)
 
     mask_val = get_mask(dataset=x_val, target_field=ARGS.target_field)
-    mask_val = decay(mask_val, target_field=ARGS.target_field)
-    mask_val = rdecay(mask_val, target_field=ARGS.target_field)
+    mask_val = decay(mask_val, seq_len=ARGS.seq_len, target_field=ARGS.target_field)
+    mask_val = rdecay(mask_val, seq_len=ARGS.seq_len, target_field=ARGS.target_field)
 
     save_files(path_folder=ARGS.path_folder, name_dataset=ARGS.dataset, dataset=x_train, mask=mask_train, type_dataset="train")
     save_files(path_folder=ARGS.path_folder, name_dataset=ARGS.dataset, dataset=x_test, mask=mask_test, type_dataset="test")
