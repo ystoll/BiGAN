@@ -99,6 +99,12 @@ def read_dataset(path_folder=ARGS.path_folder, dataset=ARGS.dataset):
     return dataset
 
 
+def add_epoch(dataset=None, mask=None):
+    mask[['epoch_format']] = dataset[['epoch_format']].copy()
+    return mask
+
+
+
 def group_by_seq(dataset=None, seq_len=ARGS.seq_len):
 
     rows = dataset.groupby('Month').count()['Date'] % seq_len
@@ -159,13 +165,23 @@ def preprocess_data(ARGS=ARGS):
     mask_train = decay(mask_train, seq_len=ARGS.seq_len, target_field=ARGS.target_field)
     mask_train = rdecay(mask_train, seq_len=ARGS.seq_len, target_field=ARGS.target_field)
 
+    mask_train = add_epoch(dataset=x_train, mask=mask_train)
+
+
     mask_test = get_mask(dataset=x_test, target_field=ARGS.target_field)
     mask_test = decay(mask_test, seq_len=ARGS.seq_len, target_field=ARGS.target_field)
     mask_test = rdecay(mask_test, seq_len=ARGS.seq_len, target_field=ARGS.target_field)
 
+    mask_train = add_epoch(dataset=x_test, mask=mask_test)
+
+
+
     mask_val = get_mask(dataset=x_val, target_field=ARGS.target_field)
     mask_val = decay(mask_val, seq_len=ARGS.seq_len, target_field=ARGS.target_field)
     mask_val = rdecay(mask_val, seq_len=ARGS.seq_len, target_field=ARGS.target_field)
+
+    mask_train = add_epoch(dataset=x_val, mask=mask_val)
+
 
     save_files(path_folder=ARGS.path_folder, name_dataset=ARGS.dataset, dataset=x_train, mask=mask_train, type_dataset="train")
     save_files(path_folder=ARGS.path_folder, name_dataset=ARGS.dataset, dataset=x_test, mask=mask_test, type_dataset="test")

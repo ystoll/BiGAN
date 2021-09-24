@@ -44,9 +44,9 @@ ARG_PARSER.add_argument("--air", default=True)
 ARG_PARSER.add_argument("--mimic", default=False)
 
 ARG_PARSER.add_argument("--num_epochs", default=100, type=int)
-ARG_PARSER.add_argument("--seq_len", default=40, type=int)
-ARG_PARSER.add_argument("--pred_len", default=8, type=int)
-ARG_PARSER.add_argument("--batch_size", default=200, type=int)
+ARG_PARSER.add_argument("--seq_len", default=20, type=int)
+ARG_PARSER.add_argument("--pred_len", default=3, type=int)
+ARG_PARSER.add_argument("--batch_size", default=1, type=int)
 ARG_PARSER.add_argument("--missingRate", default=10, type=int)
 ARG_PARSER.add_argument("--patience", default=30, type=int)
 ARG_PARSER.add_argument("--e_lrn_rate", default=0.1, type=float)
@@ -63,7 +63,7 @@ MAX_SEQ_LEN = ARGS.seq_len
 BATCH_SIZE = ARGS.batch_size
 EPSILON = 1e-40
 
-
+# TODO: find a way to only convert to float fields which are not dates.
 # Create Dataset
 class CSVDataset(Dataset):
     def __init__(self, path, chunksize, length, seq_len, flag):
@@ -81,17 +81,24 @@ class CSVDataset(Dataset):
         data = data.fillna(0)
         # print(data.columns)
         # input("waiting")
-        data = data.drop(["date_format"], axis=1)
+        # data = data.drop(["date_format"], axis=1)
+        data = data.drop(["Date", "Time"], axis=1)
+        # print(data.shape)
+        # input("Waiting")
         if self.flag == 0:
             pids = data["epoch_format"]
             pids = T.as_tensor(pids.values.astype(float), dtype=T.long)
 
+
             data = T.as_tensor(data.values.astype(float), dtype=T.float32)
             data = data.view(int(data.shape[0] / self.seq_len), self.seq_len, data.shape[1])
+
             return data, pids
         else:
             data = T.as_tensor(data.values.astype(float), dtype=T.float32)
             data = data.view(int(data.shape[0] / self.seq_len), self.seq_len, data.shape[1])
+            # print(data.shape)
+            # input("Waiting")
 
         return data
 
@@ -165,8 +172,12 @@ def pred_test(args, model, predWin):
         #     files = "cond" + i + "test.csv"
         #     maskFiles = "mask" + i + "test.csv"
         for i in [1]:
-            files = "data/air/preprocess/airTest.csv"
-            maskFiles = "data/air/preprocess/airTestMask.csv"
+            # files = "data/air/preprocess/airTest.csv"
+            # maskFiles = "data/air/preprocess/airTestMask.csv"
+
+            files = "data/ibat/preprocess/test_raw_results_demo.csv"
+            maskFiles = "data/ibat/preprocess/mask_test_raw_results_demo.csv"
+
 
             dataset = CSVDataset(files, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=0)
             maskDataset = CSVDataset(maskFiles, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=1)
@@ -269,8 +280,12 @@ def imputation_test(args, model, missingRate):
         #     files = "cond" + i + "test.csv"
         #     maskFiles = "mask" + i + "test.csv"
         for i in [1]:
-            files = "data/air/preprocess/airTest.csv"
-            maskFiles = "data/air/preprocess/airTestMask.csv"
+            # files = "data/air/preprocess/airTest.csv"
+            # maskFiles = "data/air/preprocess/airTestMask.csv"
+
+            files = "data/ibat/preprocess/test_raw_results_demo.csv"
+            maskFiles = "data/ibat/preprocess/mask_test_raw_results_demo.csv"
+
 
             dataset = CSVDataset(files, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=0)
             maskDataset = CSVDataset(maskFiles, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=1)
@@ -424,8 +439,11 @@ def run_evalFull(args, model):
         #     files = "cond" + i + "val.csv"
         #     maskFiles = "mask" + i + "val.csv"
         for i in [1]:
-            files = "data/air/preprocess/airTest.csv"
-            maskFiles = "data/air/preprocess/airTestMask.csv"
+            # files = "data/air/preprocess/airTest.csv"
+            # maskFiles = "data/air/preprocess/airTestMask.csv"
+
+            files = "data/ibat/preprocess/val_raw_results_demo.csv"
+            maskFiles = "data/ibat/preprocess/mask_val_raw_results_demo.csv"
 
             dataset = CSVDataset(files, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=0)
             maskDataset = CSVDataset(maskFiles, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=1)
@@ -464,7 +482,7 @@ def run_evalFull(args, model):
 
 
 def run_epoch(args, model):
-    """Run a single epoch"""
+    """Run all epochs"""
 
     trainLoss = []
     valLoss = []
@@ -497,8 +515,12 @@ def run_epoch(args, model):
             # Yannick
             # files = "data/air/preprocess/airTest.csv"
             # maskFiles = "data/air/preprocess/airTestMask.csv"
-            files = "data/ibat/initial/airTest.csv"
-            maskFiles = "data/ibat/initial/airTestMask.csv"
+            # files = "data/ibat/initial/airTest.csv"
+            # maskFiles = "data/ibat/initial/airTestMask.csv"
+
+            files = "data/ibat/preprocess/train_raw_results_demo.csv"
+            maskFiles = "data/ibat/preprocess/mask_train_raw_results_demo.csv"
+
 
             dataset = CSVDataset(files, int(args.seq_len * BATCH_SIZE), 1356100, args.seq_len, flag=1)
             # Yannick flag = 0 --> flag = 1
@@ -510,25 +532,76 @@ def run_epoch(args, model):
             # for every batch
             for batch_idx, allData in enumerate(zip(loader, maskLoader)):
                 data, mask = allData
-                pids = data[1]
+                # Yannick
+                # pids = data[1]
+                # print(data.shape)
+                # print(np.array(mask).shape)
+                # input("waiting")
+
+                # data = data[0]
+                # data = data[:, :, :, 1:]
+
+                # decay = mask[:, :, :, 6]
+                # rdecay = mask[:, :, :, 7]
+                # bmi = mask[:, :, :, 5]
+                # mask = mask[:, :, :, 4]
+
+                # bmi = bmi.unsqueeze(3)
+                # data = torch.cat((data, bmi), dim=3)
+
+                # data = data.squeeze()
+                # mask = mask.squeeze()
+                # decay = decay.squeeze()
+                # rdecay = rdecay.squeeze()
+                # bmi = bmi.squeeze()
+
                 data = data[0]
-                data = data[:, :, :, 1:]
+                # print(data.shape)
+                data = data[:, :, 1:]
+                # print(data.shape)
+                # print(data)
+                # input("waiting after data print")
 
-                decay = mask[:, :, :, 6]
-                rdecay = mask[:, :, :, 7]
-                bmi = mask[:, :, :, 5]
-                mask = mask[:, :, :, 4]
+                # input("waiting after data \n")
 
-                bmi = bmi.unsqueeze(3)
-                data = torch.cat((data, bmi), dim=3)
+                # print("mask : \n", mask[0][0][0][:, 0])
+                # print("mask shape: \n", mask[0][0][0][:, 0].shape)
+
+                # print("mask 2 :", np.squeeze(np.array(mask[0][0][0])))
+                # input("waiting after mask")
+
+                # print("decay : \n", mask[0][0][0][:, 1])
+                # print("decay shape: \n", mask[0][0][0][:, 1].shape)
+                # print("rdecay : \n", mask[0][0][0][:, 2])
+                # print("rdecay shape: \n", mask[0][0][0][:, 2].shape)
+
+                # input("after prints")
+
+                mask_batch = mask[0][0][0][:, 0]
+                decay = mask[0][0][0][:, 1]
+                rdecay = mask[0][0][0][:, 2]
+
+                # bmi = mask[:, :, :, 5]
+
+
+                # bmi = bmi.unsqueeze(3)
+                # data = torch.cat((data, bmi), dim=3)
+
+                # data = data.squeeze()
+                # mask_batch = mask_batch.squeeze()
+                # decay = decay.squeeze()
+                # rdecay = rdecay.squeeze()
 
                 data = data.squeeze()
-                mask = mask.squeeze()
-                decay = decay.squeeze()
-                rdecay = rdecay.squeeze()
-                bmi = bmi.squeeze()
+                print("data shape: \n", data.shape)
+                print("mask_batch shape: \n", mask_batch.shape)
+                print("decay shape: \n", decay.shape)
+                print("rdecay shape: \n", rdecay.shape)
 
-                ret_f, ret = run_on_batch(model, data, mask, decay, rdecay, args, optimizer)  # ,bmi_norm)
+                # bmi = bmi.squeeze()
+
+
+                ret_f, ret = run_on_batch(model, data, mask_batch, decay, rdecay, args, optimizer)  # , bmi_norm)
                 RLoss = RLoss + ret["loss"].item()
 
             TBatches = TBatches + batch_idx + 1
